@@ -31,7 +31,9 @@ bool Scene::Import(const std::string& points_path, const std::string& cameras_pa
 		for (int i = 0; i < 3; ++i) iss >> img.tvec[i];
 		iss >> img.camera_id >> img.name;
 		// Next line: 2D points (optional, skip for now)
+		std::getline(img_file, line);
 		images_[img.id] = img;
+
 	}
 	img_file.close();
 
@@ -84,6 +86,7 @@ bool Scene::Export(const std::string& points_path, const std::string& cameras_pa
 		for (size_t i = 0; i < img.tvec.size(); ++i) img_file << " " << img.tvec[i];
 		img_file << " " << img.camera_id << " " << img.name << "\n";
 		// 2D points not written for simplicity
+		img_file << "\n";
 	}
 	img_file.close();
 
