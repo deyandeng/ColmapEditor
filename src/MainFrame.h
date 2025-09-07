@@ -22,6 +22,8 @@ private:
     void OnDeleteSelected(wxCommandEvent& event);
     void OnInvertSelected(wxCommandEvent& event);
     void OnResetView(wxCommandEvent& event);
+    void OnIncreasePointSize(wxCommandEvent& event);
+    void OnDecreasePointSize(wxCommandEvent& event);
 
     OSGCanvas* m_canvas;
     wxPanel* m_panel;

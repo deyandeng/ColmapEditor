@@ -80,11 +80,29 @@ void OSGCanvas::OnKeyDown(wxKeyEvent& event)
         InvertSelectedPoitns();
         break;
     }
+    case 'n':
+    case 'N':
+    {
+        SetCursorMode(MODE_NORMAL);
+        break;
+    }
     case 'd':
     case 'D':
     case WXK_DELETE:
     {
         DeleteSelectedPoints();
+        break;
+    }
+    case '+':
+    case WXK_NUMPAD_ADD:
+    {
+        ScalePoint(1);
+        break;
+    }
+    case '-':
+    case WXK_NUMPAD_SUBTRACT:
+    {
+        ScalePoint(-1);
         break;
     }
     case WXK_ESCAPE:
@@ -275,6 +293,25 @@ void OSGCanvas::Render() {
     if (m_viewer.valid()) m_viewer->frame();
 }
 
+void OSGCanvas::ScalePoint(int delta)
+{
+    if (delta > 0) pointSize *= 2.0f;
+    else pointSize *= 0.5f;
+    if (pointsGeode.valid())
+    {
+        osg::Geode* geode = pointsGeode.get();
+        if (geode && geode->getNumDrawables() > 0) {
+            osg::Geometry* geom = dynamic_cast<osg::Geometry*>(geode->getDrawable(0));
+            if (geom) {
+                osg::ref_ptr<osg::Point> pointSizer = new osg::Point(pointSize); // 3 pixels
+                geom->getOrCreateStateSet()->setAttribute(pointSizer.get());
+                geom->dirtyBound();
+                Refresh(false);
+            }
+        }
+    }
+}
+
 void OSGCanvas::DrawPolygon()
 {
     // Remove previous HUD camera if any
@@ -403,8 +440,8 @@ void OSGCanvas::UpdateSceneGraph(bool reset) {
     pointsGeom->setVertexArray(vertices.get());
     pointsGeom->setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
     pointsGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, vertices->size()));
-    osg::ref_ptr<osg::Point> pointSize = new osg::Point(3.0f); // 3 pixels
-    pointsGeom->getOrCreateStateSet()->setAttribute(pointSize.get());
+    osg::ref_ptr<osg::Point> pointSizer = new osg::Point(pointSize); // 3 pixels
+    pointsGeom->getOrCreateStateSet()->setAttribute(pointSizer.get());
     pointsGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
     pointsGeode->addDrawable(pointsGeom.get());
     m_root->addChild(pointsGeode.get());

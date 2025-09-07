@@ -12,7 +12,9 @@ enum {
     ID_ModeRectangle,
     ID_ModePolygon,
     ID_InvertSelected,
-    ID_ResetView
+    ID_ResetView,
+    ID_IncreasePointSize,
+    ID_DecreasePointSize
 };
 
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
@@ -25,6 +27,8 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_ModePolygon, MainFrame::OnModePolygon)
     EVT_MENU(wxID_EXIT, MainFrame::OnExit)
     EVT_MENU(ID_ResetView, MainFrame::OnResetView)
+    EVT_MENU(ID_IncreasePointSize, MainFrame::OnIncreasePointSize)
+    EVT_MENU(ID_DecreasePointSize, MainFrame::OnDecreasePointSize)
 wxEND_EVENT_TABLE()
 
 MainFrame::MainFrame(const wxString& title)
@@ -39,15 +43,20 @@ MainFrame::MainFrame(const wxString& title)
     m_menuBar->Append(fileMenu, "File");
 
     wxMenu* cursorMenu = new wxMenu;
-    cursorMenu->Append(ID_ModeNormal, "Cursor Normal Mode");
-    cursorMenu->Append(ID_ModeRectangle, "Cursor Rectangle Mode");
-    cursorMenu->Append(ID_ModePolygon, "Cursor Polygon Mode");
+    cursorMenu->Append(ID_ModeNormal, "Cursor Normal Mode(N)");
+    cursorMenu->Append(ID_ModeRectangle, "Cursor Rectangle Mode(R)");
+    cursorMenu->Append(ID_ModePolygon, "Cursor Polygon Mode(P)");
     m_menuBar->Append(cursorMenu, "Cursor");
 
+    wxMenu* viewMenu = new wxMenu;
+    viewMenu->Append(ID_ResetView, "Reset view(Esc)");
+    viewMenu->Append(ID_IncreasePointSize, "Increase point size(+)");
+    viewMenu->Append(ID_DecreasePointSize, "Decrease point size(-)");
+    m_menuBar->Append(viewMenu, "View");
+
     wxMenu* editMenue = new wxMenu;
-    editMenue->Append(ID_ResetView, "Reset view");
-    editMenue->Append(ID_InvertSelected, "Invert Selected Points");
-    editMenue->Append(ID_DeleteSelected, "Delete Selected Points");
+    editMenue->Append(ID_InvertSelected, "Invert Selected Points(V)");
+    editMenue->Append(ID_DeleteSelected, "Delete Selected Points(Del)");
     m_menuBar->Append(editMenue, "Edit");
 
     SetMenuBar(m_menuBar);
@@ -100,6 +109,16 @@ void MainFrame::OnExportColmapFiles(wxCommandEvent& event) {
         wxMessageBox("Failed to export COLMAP files.", "Error", wxICON_ERROR);
         return;
     }
+}
+
+void MainFrame::OnIncreasePointSize(wxCommandEvent& event)
+{
+    m_canvas->ScalePoint(1);
+}
+
+void MainFrame::OnDecreasePointSize(wxCommandEvent& event)
+{
+    m_canvas->ScalePoint(-1);
 }
 
 void MainFrame::OnDeleteSelected(wxCommandEvent& event) {

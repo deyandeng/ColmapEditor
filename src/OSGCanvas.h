@@ -25,6 +25,7 @@ public:
     void SelectPointsInPolygon(const std::vector<Point2D>& polygon);
     void SetContextCurrent();
     void DrawPolygon();
+    void ScalePoint(int delta);
 protected:
     void OnPaint(wxPaintEvent& event);
     void OnMouse(wxMouseEvent& event);
@@ -52,6 +53,8 @@ protected:
     osg::ref_ptr<osg::Geode> camerasGeode;
     osg::ref_ptr<osg::Geode> pointsGeode;
     osg::ref_ptr<osg::Camera> hudCamera;
+
+    float pointSize = 3.0f;
 
     wxDECLARE_EVENT_TABLE();
 };
