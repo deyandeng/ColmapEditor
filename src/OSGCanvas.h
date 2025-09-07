@@ -20,6 +20,7 @@ public:
     OSGCanvas(wxWindow* parent);
     void SetScene(class Scene* scene);
     void DeleteSelectedPoints();
+    void InvertSelectedPoitns();
     void SelectPointsInPolygon(const std::vector<Point2D>& polygon);
     void SetContextCurrent();
     void DrawPolygon();

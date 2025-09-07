@@ -74,6 +74,12 @@ void OSGCanvas::OnKeyDown(wxKeyEvent& event)
         Refresh(false);
         break;
     }
+    case 'v':
+    case 'V':
+    {
+        InvertSelectedPoitns();
+        break;
+    }
     case 'd':
     case 'D':
     case WXK_DELETE:
@@ -98,6 +104,23 @@ void OSGCanvas::DeleteSelectedPoints() {
     m_scene->DeletePoints(selected);
     UpdateSceneGraph(false);
     Refresh();
+}
+
+void OSGCanvas::InvertSelectedPoitns()
+{
+    if (m_scene == nullptr) return;
+    int npt = m_scene->GetPoints().size();
+    std::vector<char> flags(npt, 1);
+    for (int i : selected)
+    {
+        flags[i] = 0;
+    }
+    selected.clear();
+    for (int i = 0; i < npt; i++)
+    {
+        if (flags[i]) selected.push_back(i);
+    }
+    UpdateSelect();
 }
 
 

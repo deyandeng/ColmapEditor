@@ -1,6 +1,7 @@
 #include "Scene.h"
 #include <fstream>
 #include <sstream>
+#include <iomanip>
 
 bool Scene::Import(const std::string& points_path, const std::string& cameras_path, const std::string& images_path) {
 	// Parse cameras.txt
@@ -84,6 +85,7 @@ bool Scene::Export(const std::string& points_path, const std::string& cameras_pa
 	// Write images.txt
 	std::ofstream img_file(images_path);
 	if (!img_file.is_open()) return false;
+	img_file << std::fixed << std::setprecision(12);
 	img_file << "# Image list with one line of data per image:\n";
 	img_file << "#   IMAGE_ID, QVEC (qw, qx, qy, qz), TVEC (tx, ty, tz), CAMERA_ID, NAME\n";
 	for (auto it = images_.begin(); it != images_.end(); ++it) {

@@ -10,13 +10,15 @@ enum {
     ID_DeleteSelected,
     ID_ModeNormal,
     ID_ModeRectangle,
-    ID_ModePolygon
+    ID_ModePolygon,
+    ID_InvertSelected
 };
 
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_OpenColmap, MainFrame::OnOpenColmapFiles)
     EVT_MENU(ID_ExportColmap, MainFrame::OnExportColmapFiles)
     EVT_MENU(ID_DeleteSelected, MainFrame::OnDeleteSelected)
+    EVT_MENU(ID_InvertSelected, MainFrame::OnInvertSelected)
     EVT_MENU(ID_ModeNormal, MainFrame::OnModeNormal)
     EVT_MENU(ID_ModeRectangle, MainFrame::OnModeRectangle)
     EVT_MENU(ID_ModePolygon, MainFrame::OnModePolygon)
@@ -41,6 +43,7 @@ MainFrame::MainFrame(const wxString& title)
     m_menuBar->Append(cursorMenu, "Cursor");
 
     wxMenu* editMenue = new wxMenu;
+    editMenue->Append(ID_InvertSelected, "Invert Selected Points");
     editMenue->Append(ID_DeleteSelected, "Delete Selected Points");
     m_menuBar->Append(editMenue, "Edit");
 
@@ -99,6 +102,11 @@ void MainFrame::OnExportColmapFiles(wxCommandEvent& event) {
 void MainFrame::OnDeleteSelected(wxCommandEvent& event) {
     // TODO: Delete selected points in OSGCanvas
     m_canvas->DeleteSelectedPoints();
+}
+
+void MainFrame::OnInvertSelected(wxCommandEvent& event)
+{
+    m_canvas->InvertSelectedPoitns();
 }
 
 void MainFrame::OnExit(wxCommandEvent& event) {
