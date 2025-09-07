@@ -87,6 +87,11 @@ void OSGCanvas::OnKeyDown(wxKeyEvent& event)
         DeleteSelectedPoints();
         break;
     }
+    case WXK_ESCAPE:
+    {
+        ResetView();
+        break;
+    }
     default:
         break;
     }
@@ -121,6 +126,29 @@ void OSGCanvas::InvertSelectedPoitns()
         if (flags[i]) selected.push_back(i);
     }
     UpdateSelect();
+}
+
+void OSGCanvas::ResetView()
+{
+    osg::ComputeBoundsVisitor cbv;
+    m_root->accept(cbv);
+    osg::BoundingBox bb = cbv.getBoundingBox();
+
+    if (bb.valid())
+    {
+        osg::Vec3f center = bb.center();
+        float radius = bb.radius();
+
+        osg::Vec3f eye(center.x(), center.y() - radius * 3.0f, center.z() + radius * 1.0f);
+        osg::Vec3f up(0.0f, 0.0f, 1.0f);
+
+        auto manip = dynamic_cast<osgGA::TrackballManipulator*>(m_viewer->getCameraManipulator());
+        if (manip) {
+            manip->setHomePosition(eye, center, up);
+            manip->home(0.0);
+        }
+        Refresh(false);
+    }
 }
 
 

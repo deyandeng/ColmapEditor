@@ -11,7 +11,8 @@ enum {
     ID_ModeNormal,
     ID_ModeRectangle,
     ID_ModePolygon,
-    ID_InvertSelected
+    ID_InvertSelected,
+    ID_ResetView
 };
 
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
@@ -23,6 +24,7 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_ModeRectangle, MainFrame::OnModeRectangle)
     EVT_MENU(ID_ModePolygon, MainFrame::OnModePolygon)
     EVT_MENU(wxID_EXIT, MainFrame::OnExit)
+    EVT_MENU(ID_ResetView, MainFrame::OnResetView)
 wxEND_EVENT_TABLE()
 
 MainFrame::MainFrame(const wxString& title)
@@ -43,6 +45,7 @@ MainFrame::MainFrame(const wxString& title)
     m_menuBar->Append(cursorMenu, "Cursor");
 
     wxMenu* editMenue = new wxMenu;
+    editMenue->Append(ID_ResetView, "Reset view");
     editMenue->Append(ID_InvertSelected, "Invert Selected Points");
     editMenue->Append(ID_DeleteSelected, "Delete Selected Points");
     m_menuBar->Append(editMenue, "Edit");
@@ -107,6 +110,11 @@ void MainFrame::OnDeleteSelected(wxCommandEvent& event) {
 void MainFrame::OnInvertSelected(wxCommandEvent& event)
 {
     m_canvas->InvertSelectedPoitns();
+}
+
+void MainFrame::OnResetView(wxCommandEvent& event)
+{
+    m_canvas->ResetView();
 }
 
 void MainFrame::OnExit(wxCommandEvent& event) {

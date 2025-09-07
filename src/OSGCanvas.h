@@ -21,6 +21,7 @@ public:
     void SetScene(class Scene* scene);
     void DeleteSelectedPoints();
     void InvertSelectedPoitns();
+    void ResetView();
     void SelectPointsInPolygon(const std::vector<Point2D>& polygon);
     void SetContextCurrent();
     void DrawPolygon();
