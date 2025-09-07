@@ -12,13 +12,19 @@ struct Camera {
     std::vector<double> params;
 };
 
+struct ImagePoint2D {
+    double x;
+    double y;
+    int point3D_id; // -1 if no associated 3D point
+};
+
 struct Image {
     int id;
     int camera_id;
     std::string name;
     std::vector<double> qvec; // quaternion
     std::vector<double> tvec; // translation
-    std::vector<std::pair<int, int>> point2D_idxs; // (point3D_id, idx)
+    std::vector<ImagePoint2D> points2D; // (point3D_id, idx)
 };
 
 struct Point3D {
@@ -37,10 +43,6 @@ public:
     const std::map<int, Camera>& GetCameras() const { return cameras_; }
     const std::map<int, Image>& GetImages() const { return images_; }
     const std::map<int, Point3D>& GetPoints() const { return points_; }
-
-    // Relationship helpers
-    std::vector<int> GetImagePointIDs(int image_id) const;
-    std::vector<int> GetPointImageIDs(int point_id) const;
 
     void DeletePoints(std::vector<int>& selected);
 

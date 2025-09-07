@@ -32,6 +32,13 @@ bool Scene::Import(const std::string& points_path, const std::string& cameras_pa
 		iss >> img.camera_id >> img.name;
 		// Next line: 2D points (optional, skip for now)
 		std::getline(img_file, line);
+		std::istringstream pts_iss(line);
+		img.points2D.clear();
+		double x, y;
+		int pt_id;
+		while (pts_iss >> x >> y >> pt_id) {
+			img.points2D.push_back({ x, y, pt_id });
+		}
 		images_[img.id] = img;
 
 	}
@@ -86,7 +93,10 @@ bool Scene::Export(const std::string& points_path, const std::string& cameras_pa
 		for (size_t i = 0; i < img.tvec.size(); ++i) img_file << " " << img.tvec[i];
 		img_file << " " << img.camera_id << " " << img.name << "\n";
 		// 2D points not written for simplicity
-		img_file << "\n";
+		for (const auto& pt : img.points2D) {
+			img_file << pt.x << " " << pt.y << " " << pt.point3D_id << " ";
+		}
+		img_file << "\n"; // end of 2D points line
 	}
 	img_file.close();
 
@@ -106,27 +116,6 @@ bool Scene::Export(const std::string& points_path, const std::string& cameras_pa
 	pt_file.close();
 	return true;
 }
-
-std::vector<int> Scene::GetImagePointIDs(int image_id) const {
-	std::vector<int> ids;
-	auto it = images_.find(image_id);
-	if (it != images_.end()) {
-		for (const auto& pair : it->second.point2D_idxs) {
-			ids.push_back(pair.first);
-		}
-	}
-	return ids;
-}
-
-std::vector<int> Scene::GetPointImageIDs(int point_id) const {
-	std::vector<int> ids;
-	auto it = points_.find(point_id);
-	if (it != points_.end()) {
-		ids = it->second.track;
-	}
-	return ids;
-}
-
 
 void Scene::DeletePoints(std::vector<int>& selected)
 {
