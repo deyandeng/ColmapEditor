@@ -14,6 +14,8 @@ wxBEGIN_EVENT_TABLE(OSGCanvas, wxGLCanvas)
     EVT_PAINT(OSGCanvas::OnPaint)
     EVT_MOUSE_EVENTS(OSGCanvas::OnMouse)
     EVT_SIZE(OSGCanvas::OnSize)
+    EVT_KEY_DOWN(OSGCanvas::OnKeyDown)
+    EVT_KEY_UP(OSGCanvas::OnKeyUp)
 wxEND_EVENT_TABLE()
 
 OSGCanvas::OSGCanvas(wxWindow* parent)
@@ -45,9 +47,54 @@ void OSGCanvas::SetScene(Scene* scene) {
     Refresh();
 }
 
+void OSGCanvas::SetCursorMode(CursorMode mode)
+{
+    m_cursorMode = mode;
+    if (mode == MODE_NORMAL) SetCursor(wxCURSOR_ARROW);
+    else if (mode == MODE_RECTANGLE) SetCursor(wxCURSOR_CROSS);
+    else SetCursor(wxCURSOR_HAND);
+}
+
+void OSGCanvas::OnKeyDown(wxKeyEvent& event)
+{
+    int key = event.GetKeyCode();
+    switch (key)
+    {
+    case 'r':
+    case 'R':
+    {
+        SetCursorMode(MODE_RECTANGLE);
+        Refresh(false);
+        break;
+    }
+    case 'p':
+    case 'P':
+    {
+        SetCursorMode(MODE_POLYGON);
+        Refresh(false);
+        break;
+    }
+    case 'd':
+    case 'D':
+    case WXK_DELETE:
+    {
+        DeleteSelectedPoints();
+        break;
+    }
+    default:
+        break;
+    }
+}
+
+void OSGCanvas::OnKeyUp(wxKeyEvent& event)
+{
+    event.Skip();
+}
+
 
 void OSGCanvas::DeleteSelectedPoints() {
     // TODO: Remove selected points from scene and data
+    if (m_scene == nullptr) return;
     m_scene->DeletePoints(selected);
     UpdateSceneGraph(false);
     Refresh();

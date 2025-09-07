@@ -14,7 +14,7 @@ public:
         MODE_POLYGON
     };
     struct Point2D { int x, y; };
-    void SetCursorMode(CursorMode mode) { m_cursorMode = mode; }
+    void SetCursorMode(CursorMode mode);
     CursorMode GetCursorMode() const { return m_cursorMode; }
 public:
     OSGCanvas(wxWindow* parent);
@@ -28,6 +28,8 @@ protected:
     void OnMouse(wxMouseEvent& event);
     void OnSize(wxSizeEvent& event);
     void OnIdle(wxIdleEvent& event);
+    void OnKeyDown(wxKeyEvent& event);
+    void OnKeyUp(wxKeyEvent& event);
     void Render();
     void UpdateSceneGraph(bool reset=true);
     void UpdateSelect();
