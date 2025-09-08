@@ -56,8 +56,8 @@ MainFrame::MainFrame(const wxString& title)
     viewMenu->Append(ID_ResetView, "Reset view(Esc)");
     viewMenu->Append(ID_IncreasePointSize, "Increase point size(+)");
     viewMenu->Append(ID_DecreasePointSize, "Decrease point size(-)");
-    viewMenu->Append(ID_IncreaseCamSize, "Increase point size(\u2191)");
-    viewMenu->Append(ID_DecreaseCamSize, "Decrease point size(\u2193)");
+    viewMenu->Append(ID_IncreaseCamSize, "Increase camera size(\u2191)");
+    viewMenu->Append(ID_DecreaseCamSize, "Decrease camera size(\u2193)");
     m_menuBar->Append(viewMenu, "View");
 
     wxMenu* editMenue = new wxMenu;
