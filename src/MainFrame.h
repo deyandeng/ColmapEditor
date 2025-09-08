@@ -24,6 +24,8 @@ private:
     void OnResetView(wxCommandEvent& event);
     void OnIncreasePointSize(wxCommandEvent& event);
     void OnDecreasePointSize(wxCommandEvent& event);
+    void OnIncreaseCamSize(wxCommandEvent& event);
+    void OnDecreaseCamSize(wxCommandEvent& event);
 
     OSGCanvas* m_canvas;
     wxPanel* m_panel;

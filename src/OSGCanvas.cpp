@@ -9,6 +9,7 @@
 #include <osg/ComputeBoundsVisitor>
 #include <osg/Point>
 #include <osg/LineWidth>
+#include <osg/BlendFunc>
 
 wxBEGIN_EVENT_TABLE(OSGCanvas, wxGLCanvas)
     EVT_PAINT(OSGCanvas::OnPaint)
@@ -32,7 +33,11 @@ OSGCanvas::OSGCanvas(wxWindow* parent)
     m_viewer->getCamera()->setGraphicsContext(m_gc.get());
     m_viewer->getCamera()->setViewport(new osg::Viewport(0, 0, w, h));
     m_viewer->getCamera()->setProjectionMatrixAsPerspective(45.0f, static_cast<double>(w)/h, 0.1, 1000.0);
-    m_viewer->getCamera()->setClearColor(osg::Vec4(0.8f, 0.8f, 0.8f, 1.0f)); // dark background
+    m_viewer->getCamera()->setClearColor(osg::Vec4(1.0f, 1.0f, 1.0f, 1.0f)); // dark background
+
+    long style = GetWindowStyle();
+    style |= wxWANTS_CHARS;
+    SetWindowStyle(style);
 }
 
 void OSGCanvas::SetContextCurrent()
@@ -108,6 +113,16 @@ void OSGCanvas::OnKeyDown(wxKeyEvent& event)
     case WXK_ESCAPE:
     {
         ResetView();
+        break;
+    }
+    case WXK_UP:
+    {
+        ScaleCamera(1);
+        break;
+    }
+    case WXK_DOWN:
+    {
+        ScaleCamera(-1);
         break;
     }
     default:
@@ -312,6 +327,127 @@ void OSGCanvas::ScalePoint(int delta)
     }
 }
 
+void OSGCanvas::DrawCameras()
+{
+    if (m_scene->GetImages().size() == 0) return;
+    double scale = 0.2;
+    double minx=FLT_MAX, maxx=-FLT_MAX, miny=FLT_MAX, maxy=-FLT_MAX;
+    std::vector<osg::Vec3d> Cs;
+    std::vector<osg::Matrix> Rs;
+    for (auto it = m_scene->GetImages().begin(); it != m_scene->GetImages().end(); ++it) {
+        const Image& img = it->second;
+        osg::Quat q(img.qvec[1], img.qvec[2], img.qvec[3], img.qvec[0]);
+        osg::Matrix Rt;
+        Rt.makeRotate(q);   // R is camera-to-world rotation? NO, it's world-to-camera!
+        // Camera center in world coords
+        osg::Vec3d t(img.tvec[0], img.tvec[1], img.tvec[2]);
+        osg::Vec3d C = -(Rt * t);   // C = -R^T * t
+        Cs.push_back(C);
+        osg::Matrix R;// = osg::Matrix::transpose(R);  // world-from-camera rotation
+        R.transpose(Rt);
+        Rs.push_back(R);
+        if (C.x() < minx) minx = C.x();
+        if (C.x() > maxx) maxx = C.x();
+        if (C.y() < miny) miny = C.y();
+        if (C.y() > maxy) maxy = C.y();
+    }
+    double dx = maxx - minx;
+    double dy = maxy - miny;
+    scale = 0.5*std::sqrt(dx*dx+dy*dy) * cameraSize; // Size of pyramid
+    camerasGeode = new osg::Geode;
+    for (int i = 0; i < Rs.size();i++) {
+        osg::ref_ptr<osg::Geometry> camGeom = new osg::Geometry;
+        osg::ref_ptr<osg::Vec3Array> camVerts = new osg::Vec3Array;
+        osg::ref_ptr<osg::Vec4Array> camColors = new osg::Vec4Array;
+
+        // Define pyramid base in camera local coordinates
+        std::vector<osg::Vec3d> base = {
+            osg::Vec3d(-scale, -scale, scale),
+            osg::Vec3d(scale, -scale, scale),
+            osg::Vec3d(scale,  scale, scale),
+            osg::Vec3d(-scale,  scale, scale)
+        };
+        // Transform base to world coordinates
+        osg::Matrix R=Rs[i];// = osg::Matrix::transpose(R);  // world-from-camera rotation
+        osg::Vec3d C = Cs[i];   // C = -R^T * t
+
+        for (auto& v : base) v = R * v + C;
+        // Apex
+        osg::Vec3d apex = C;
+        // Add vertices
+        camVerts->push_back(apex); // 0
+        for (int i = 0; i < 4; ++i) camVerts->push_back(base[i]); // 1-4
+        // Color: green
+        for (int i = 0; i < 5; ++i) camColors->push_back(osg::Vec4(1, 0, 0, 1));
+        camGeom->setVertexArray(camVerts.get());
+        camGeom->setColorArray(camColors.get(), osg::Array::BIND_PER_VERTEX);
+
+        // Draw base square
+        osg::ref_ptr<osg::DrawElementsUInt> baseLines = new osg::DrawElementsUInt(osg::PrimitiveSet::LINE_LOOP, 0);
+        baseLines->push_back(1); baseLines->push_back(2); baseLines->push_back(3); baseLines->push_back(4);
+        camGeom->addPrimitiveSet(baseLines.get());
+        // Draw sides
+        for (int i = 1; i <= 4; ++i) {
+            osg::ref_ptr<osg::DrawElementsUInt> side = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
+            side->push_back(0); side->push_back(i);
+            camGeom->addPrimitiveSet(side.get());
+        }
+
+        osg::ref_ptr<osg::StateSet> ssCam = camGeom->getOrCreateStateSet();
+        // Enable blending
+        ssCam->setMode(GL_BLEND, osg::StateAttribute::ON);
+        // Set blending function (optional, commonly used for standard alpha blending)
+        ssCam->setAttributeAndModes(new osg::BlendFunc(
+            osg::BlendFunc::SRC_ALPHA, osg::BlendFunc::ONE_MINUS_SRC_ALPHA));
+
+        osg::ref_ptr<osg::LineWidth> lineWidth = new osg::LineWidth(2.0); // 3 pixels
+        ssCam->setAttribute(lineWidth.get());
+        ssCam->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        ssCam->setMode(GL_DEPTH_WRITEMASK, osg::StateAttribute::OFF);
+        ssCam->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+
+        // --- Image plane rectangle (filled) ---
+        osg::ref_ptr<osg::Geometry> planeGeom = new osg::Geometry;
+        osg::ref_ptr<osg::Vec3Array> planeVerts = new osg::Vec3Array;
+        for (int i = 0; i < 4; ++i)
+            planeVerts->push_back(base[i]);
+
+        osg::ref_ptr<osg::Vec4Array> planeColors = new osg::Vec4Array;
+        for (int i = 0; i < 4; ++i)
+            planeColors->push_back(osg::Vec4(1, 0.2, 0.2, 0.3f)); // semi-transparent green
+
+        planeGeom->setVertexArray(planeVerts.get());
+        planeGeom->setColorArray(planeColors.get(), osg::Array::BIND_PER_VERTEX);
+        planeGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::QUADS, 0, 4));
+
+        // State for transparency
+        osg::StateSet* ssPlane = planeGeom->getOrCreateStateSet();
+        ssPlane->setMode(GL_BLEND, osg::StateAttribute::ON);
+        ssPlane->setAttributeAndModes(new osg::BlendFunc(
+            osg::BlendFunc::SRC_ALPHA, osg::BlendFunc::ONE_MINUS_SRC_ALPHA));
+        ssPlane->setRenderingHint(osg::StateSet::TRANSPARENT_BIN);
+        ssPlane->setMode(GL_DEPTH_WRITEMASK, osg::StateAttribute::OFF);
+        ssPlane->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+
+        camerasGeode->addDrawable(camGeom.get());
+        camerasGeode->addDrawable(planeGeom.get());
+    }
+    m_root->addChild(camerasGeode.get());
+    Refresh(false);
+}
+
+void OSGCanvas::ScaleCamera(int delta)
+{
+    if (delta > 0) cameraSize *= 2.0f;
+    else cameraSize *= 0.5f;
+    if (camerasGeode.valid())
+    {
+        m_root->removeChild(camerasGeode);
+        camerasGeode.release();
+    }
+    DrawCameras();
+}
+
 void OSGCanvas::DrawPolygon()
 {
     // Remove previous HUD camera if any
@@ -347,9 +483,13 @@ void OSGCanvas::DrawPolygon()
         polyColors->push_back(osg::Vec4(0, 0, 1, 1)); // blue
         polyGeom->setColorArray(polyColors.get(), osg::Array::BIND_OVERALL);
         polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINE_LOOP, 0, polyVerts->size()));
+        
+        osg::StateSet* ss = polyGeom->getOrCreateStateSet();
+        ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        ss->setMode(GL_BLEND, osg::StateAttribute::ON);
         osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(2.0f);
-        hudGeode->getOrCreateStateSet()->setAttributeAndModes(lw, osg::StateAttribute::ON);
-        hudGeode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+        ss->setAttributeAndModes(lw, osg::StateAttribute::ON);
+
         hudGeode->addDrawable(polyGeom.get());
         hudCamera->addChild(hudGeode.get());
         m_root->addChild(hudCamera.get());
@@ -377,15 +517,38 @@ void OSGCanvas::DrawPolygon()
         polyColors->push_back(osg::Vec4(0, 0, 1, 1)); // blue
         polyGeom->setColorArray(polyColors.get(), osg::Array::BIND_OVERALL);
         polyGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::LINE_LOOP, 0, polyVerts->size()));
-        hudGeode->addDrawable(polyGeom.get());
-
+        osg::StateSet* ss = polyGeom->getOrCreateStateSet();
+        ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        ss->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+        ss->setMode(GL_BLEND, osg::StateAttribute::ON);
         osg::ref_ptr<osg::LineWidth> lw = new osg::LineWidth(2.0f);
-        hudGeode->getOrCreateStateSet()->setAttributeAndModes(lw, osg::StateAttribute::ON);
-        hudGeode->getOrCreateStateSet()->setMode(GL_BLEND, osg::StateAttribute::ON);
+        ss->setAttributeAndModes(lw, osg::StateAttribute::ON);
+        hudGeode->addDrawable(polyGeom.get());
         hudCamera->addChild(hudGeode.get());
         m_root->addChild(hudCamera.get());
         Refresh();
     }
+}
+
+void OSGCanvas::DrawPoints()
+{
+    pointsGeode = new osg::Geode;
+    osg::ref_ptr<osg::Geometry> pointsGeom = new osg::Geometry;
+    osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
+    osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
+    for (auto it = m_scene->GetPoints().begin(); it != m_scene->GetPoints().end(); ++it) {
+        const Point3D& pt = it->second;
+        vertices->push_back(osg::Vec3(pt.x, pt.y, pt.z));
+        colors->push_back(osg::Vec4(pt.color[0] / 255.0, pt.color[1] / 255.0, pt.color[2] / 255.0, 1.0));
+    }
+    pointsGeom->setVertexArray(vertices.get());
+    pointsGeom->setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
+    pointsGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, vertices->size()));
+    osg::ref_ptr<osg::Point> pointSizer = new osg::Point(pointSize); // 3 pixels
+    pointsGeom->getOrCreateStateSet()->setAttribute(pointSizer.get());
+    pointsGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
+    pointsGeode->addDrawable(pointsGeom.get());
+    m_root->addChild(pointsGeode.get());
 }
 
 void OSGCanvas::UpdateSelect()
@@ -428,84 +591,14 @@ void OSGCanvas::UpdateSceneGraph(bool reset) {
     if (!m_scene) return;
     m_root->removeChildren(0, m_root->getNumChildren());
     // Add points as OSG geometry
-    pointsGeode = new osg::Geode;
-    osg::ref_ptr<osg::Geometry> pointsGeom = new osg::Geometry;
-    osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
-    osg::ref_ptr<osg::Vec4Array> colors = new osg::Vec4Array;
-    for (auto it = m_scene->GetPoints().begin(); it != m_scene->GetPoints().end(); ++it) {
-        const Point3D& pt = it->second;
-        vertices->push_back(osg::Vec3(pt.x, pt.y, pt.z));
-        colors->push_back(osg::Vec4(pt.color[0]/255.0, pt.color[1]/255.0, pt.color[2]/255.0, 1.0));
-    }
-    pointsGeom->setVertexArray(vertices.get());
-    pointsGeom->setColorArray(colors.get(), osg::Array::BIND_PER_VERTEX);
-    pointsGeom->addPrimitiveSet(new osg::DrawArrays(osg::PrimitiveSet::POINTS, 0, vertices->size()));
-    osg::ref_ptr<osg::Point> pointSizer = new osg::Point(pointSize); // 3 pixels
-    pointsGeom->getOrCreateStateSet()->setAttribute(pointSizer.get());
-    pointsGeom->getOrCreateStateSet()->setMode(GL_LIGHTING, osg::StateAttribute::OFF);
-    pointsGeode->addDrawable(pointsGeom.get());
-    m_root->addChild(pointsGeode.get());
-
+    DrawPoints();
     // Add cameras as square pyramid wireframes
-    camerasGeode = new osg::Geode;
-    for (auto it = m_scene->GetImages().begin(); it != m_scene->GetImages().end(); ++it) {
-        const Image& img = it->second;
-        osg::ref_ptr<osg::Geometry> camGeom = new osg::Geometry;
-        osg::ref_ptr<osg::Vec3Array> camVerts = new osg::Vec3Array;
-        osg::ref_ptr<osg::Vec4Array> camColors = new osg::Vec4Array;
-
-        // Camera center
-        osg::Vec3d C(img.tvec[0], img.tvec[1], img.tvec[2]);
-        double scale = 0.2; // Size of pyramid
-
-        // Camera orientation: use quaternion if available, else identity
-        osg::Quat q;
-        if (img.qvec.size() == 4) {
-            q.set(img.qvec[1], img.qvec[2], img.qvec[3], img.qvec[0]); // (x, y, z, w)
-        }
-
-        // Define pyramid base in camera local coordinates
-        std::vector<osg::Vec3d> base = {
-            osg::Vec3d(-scale, -scale, scale),
-            osg::Vec3d( scale, -scale, scale),
-            osg::Vec3d( scale,  scale, scale),
-            osg::Vec3d(-scale,  scale, scale)
-        };
-        // Transform base to world coordinates
-        for (auto& v : base) v = q * v + C;
-        // Apex
-        osg::Vec3d apex = q * osg::Vec3d(0, 0, 0) + C;
-
-        // Add vertices
-        camVerts->push_back(apex); // 0
-        for (int i = 0; i < 4; ++i) camVerts->push_back(base[i]); // 1-4
-
-        // Color: green
-        for (int i = 0; i < 5; ++i) camColors->push_back(osg::Vec4(0,1,0,1));
-
-        camGeom->setVertexArray(camVerts.get());
-        camGeom->setColorArray(camColors.get(), osg::Array::BIND_PER_VERTEX);
-
-        // Draw base square
-        osg::ref_ptr<osg::DrawElementsUInt> baseLines = new osg::DrawElementsUInt(osg::PrimitiveSet::LINE_LOOP, 0);
-        baseLines->push_back(1); baseLines->push_back(2); baseLines->push_back(3); baseLines->push_back(4);
-        camGeom->addPrimitiveSet(baseLines.get());
-        // Draw sides
-        for (int i = 1; i <= 4; ++i) {
-            osg::ref_ptr<osg::DrawElementsUInt> side = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
-            side->push_back(0); side->push_back(i);
-            camGeom->addPrimitiveSet(side.get());
-        }
-        camerasGeode->addDrawable(camGeom.get());
-    }
-    //m_root->addChild(camerasGeode.get());
-
+    DrawCameras();
     if (reset)
     {
         osg::ComputeBoundsVisitor cbv;
         m_root->accept(cbv);
         osg::BoundingBox bb = cbv.getBoundingBox();
-
         if (bb.valid())
         {
             osg::Vec3f center = bb.center();

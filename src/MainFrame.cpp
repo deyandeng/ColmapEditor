@@ -14,7 +14,9 @@ enum {
     ID_InvertSelected,
     ID_ResetView,
     ID_IncreasePointSize,
-    ID_DecreasePointSize
+    ID_DecreasePointSize,
+    ID_IncreaseCamSize,
+    ID_DecreaseCamSize
 };
 
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
@@ -29,6 +31,8 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_ResetView, MainFrame::OnResetView)
     EVT_MENU(ID_IncreasePointSize, MainFrame::OnIncreasePointSize)
     EVT_MENU(ID_DecreasePointSize, MainFrame::OnDecreasePointSize)
+    EVT_MENU(ID_IncreaseCamSize, MainFrame::OnIncreaseCamSize)
+    EVT_MENU(ID_DecreaseCamSize, MainFrame::OnDecreaseCamSize)
 wxEND_EVENT_TABLE()
 
 MainFrame::MainFrame(const wxString& title)
@@ -52,6 +56,8 @@ MainFrame::MainFrame(const wxString& title)
     viewMenu->Append(ID_ResetView, "Reset view(Esc)");
     viewMenu->Append(ID_IncreasePointSize, "Increase point size(+)");
     viewMenu->Append(ID_DecreasePointSize, "Decrease point size(-)");
+    viewMenu->Append(ID_IncreaseCamSize, "Increase point size(\u2191)");
+    viewMenu->Append(ID_DecreaseCamSize, "Decrease point size(\u2193)");
     m_menuBar->Append(viewMenu, "View");
 
     wxMenu* editMenue = new wxMenu;
@@ -120,6 +126,17 @@ void MainFrame::OnDecreasePointSize(wxCommandEvent& event)
 {
     m_canvas->ScalePoint(-1);
 }
+
+void MainFrame::OnIncreaseCamSize(wxCommandEvent& event)
+{
+    m_canvas->ScaleCamera(1);
+}
+
+void MainFrame::OnDecreaseCamSize(wxCommandEvent& event)
+{
+    m_canvas->ScaleCamera(-1);
+}
+
 
 void MainFrame::OnDeleteSelected(wxCommandEvent& event) {
     // TODO: Delete selected points in OSGCanvas
