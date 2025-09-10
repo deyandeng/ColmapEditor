@@ -16,6 +16,8 @@ private:
     void OnModeNormal(wxCommandEvent& event);
     void OnModeRectangle(wxCommandEvent& event);
     void OnModePolygon(wxCommandEvent& event);
+    void OnModeRectangleCam(wxCommandEvent& event);
+    void OnModePolygonCam(wxCommandEvent& event);
     void OnOpenColmapFiles(wxCommandEvent& event);
     void OnExportColmapFiles(wxCommandEvent& event);
     void OnExit(wxCommandEvent& event);

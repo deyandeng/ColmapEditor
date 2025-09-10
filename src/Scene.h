@@ -45,6 +45,7 @@ public:
     const std::map<int, Point3D>& GetPoints() const { return points_; }
 
     void DeletePoints(std::vector<int>& selected);
+    void DeleteImages(std::vector<int>& images);
 
 private:
     std::map<int, Camera> cameras_;

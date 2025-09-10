@@ -56,7 +56,7 @@ void OSGCanvas::SetCursorMode(CursorMode mode)
 {
     m_cursorMode = mode;
     if (mode == MODE_NORMAL) SetCursor(wxCURSOR_ARROW);
-    else if (mode == MODE_RECTANGLE) SetCursor(wxCURSOR_CROSS);
+    else if (mode == MODE_RECTANGLE || mode==MODE_RECTANGLE_CAMERA) SetCursor(wxCURSOR_CROSS);
     else SetCursor(wxCURSOR_HAND);
 }
 
@@ -68,21 +68,35 @@ void OSGCanvas::OnKeyDown(wxKeyEvent& event)
     case 'r':
     case 'R':
     {
-        SetCursorMode(MODE_RECTANGLE);
+        if (event.ControlDown())
+        {
+            SetCursorMode(MODE_RECTANGLE_CAMERA);
+        }
+        else
+        {
+            SetCursorMode(MODE_RECTANGLE);
+        }
         Refresh(false);
         break;
     }
     case 'p':
     case 'P':
     {
-        SetCursorMode(MODE_POLYGON);
+        if (event.ControlDown())
+        {
+            SetCursorMode(MODE_POLYGON_CAMERA);
+        }
+        else
+        {
+            SetCursorMode(MODE_POLYGON);
+        }
         Refresh(false);
         break;
     }
     case 'v':
     case 'V':
     {
-        InvertSelectedPoitns();
+        InvertSelected();
         break;
     }
     case 'n':
@@ -95,7 +109,7 @@ void OSGCanvas::OnKeyDown(wxKeyEvent& event)
     case 'D':
     case WXK_DELETE:
     {
-        DeleteSelectedPoints();
+        DeleteSelected();
         break;
     }
     case '+':
@@ -136,27 +150,53 @@ void OSGCanvas::OnKeyUp(wxKeyEvent& event)
 }
 
 
-void OSGCanvas::DeleteSelectedPoints() {
+void OSGCanvas::DeleteSelected() {
     // TODO: Remove selected points from scene and data
     if (m_scene == nullptr) return;
-    m_scene->DeletePoints(selected);
+    if (lastSelectMode == MODE_RECTANGLE || lastSelectMode == MODE_POLYGON)
+    {
+        m_scene->DeletePoints(selectedPoints);
+        selectedPoints.clear();
+    }
+    else if (lastSelectMode == MODE_RECTANGLE_CAMERA || lastSelectMode == MODE_POLYGON_CAMERA)
+    {
+        m_scene->DeleteImages(selectedCameras);
+        selectedCameras.clear();
+    }
     UpdateSceneGraph(false);
     Refresh();
 }
 
-void OSGCanvas::InvertSelectedPoitns()
+void OSGCanvas::InvertSelected()
 {
     if (m_scene == nullptr) return;
-    int npt = m_scene->GetPoints().size();
-    std::vector<char> flags(npt, 1);
-    for (int i : selected)
+    if (lastSelectMode == MODE_RECTANGLE || lastSelectMode == MODE_POLYGON)
     {
-        flags[i] = 0;
+        int npt = m_scene->GetPoints().size();
+        std::vector<char> flags(npt, 1);
+        for(int i: selectedPoints)
+        {
+            flags[i] = 0;
+        }
+        selectedPoints.clear();
+        for (int i = 0; i < npt; i++)
+        {
+            if (flags[i]) selectedPoints.push_back(i);
+        }
     }
-    selected.clear();
-    for (int i = 0; i < npt; i++)
+    else if (lastSelectMode == MODE_RECTANGLE_CAMERA || lastSelectMode == MODE_POLYGON_CAMERA)
     {
-        if (flags[i]) selected.push_back(i);
+        int npt = m_scene->GetImages().size();
+        std::vector<char> flags(npt, 1);
+        for(int i: selectedCameras)
+        {
+            flags[i] = 0;
+        }
+        selectedCameras.clear();
+        for (int i = 0; i < npt; i++)
+        {
+            if (flags[i]) selectedCameras.push_back(i);
+        }
     }
     UpdateSelect();
 }
@@ -245,7 +285,7 @@ void OSGCanvas::OnMouse(wxMouseEvent& event) {
                 m_gc->getEventQueue()->mouseScroll(osgGA::GUIEventAdapter::SCROLL_DOWN);
             Refresh();
         }
-    } else if (m_cursorMode == MODE_RECTANGLE) {
+    } else if (m_cursorMode == MODE_RECTANGLE || m_cursorMode == MODE_RECTANGLE_CAMERA) {
         if (event.LeftDown()) {
             rectStart = {x, y};
             rectEnd = rectStart;
@@ -262,13 +302,10 @@ void OSGCanvas::OnMouse(wxMouseEvent& event) {
             polygonPoints.push_back({ rectEnd.x, rectStart.y }); // OSG Y=bottom
             polygonPoints.push_back({ rectEnd.x, rectEnd.y }); // OSG Y=bottom
             polygonPoints.push_back({ rectStart.x, rectEnd.y }); // OSG Y=bottom
-            SelectPointsInPolygon(polygonPoints);
-            polygonPoints.clear();
-            DrawPolygon();
-            SetCursorMode(MODE_NORMAL);
-            UpdateSelect();
+            SelectObjectsInPolygon(polygonPoints);
+            
         }
-    } else if (m_cursorMode == MODE_POLYGON) {
+    } else if (m_cursorMode == MODE_POLYGON || m_cursorMode == MODE_POLYGON_CAMERA) {
         if (event.LeftDown()) {
             polygonPoints.push_back({x, y});
             polygonDrawing = true;
@@ -276,12 +313,7 @@ void OSGCanvas::OnMouse(wxMouseEvent& event) {
         } else if (event.RightDown() && polygonDrawing) {
             polygonDrawing = false;
             // Calculate selection in polygon
-            SelectPointsInPolygon(polygonPoints);
-            // TODO: Implement 2D polygon selection logic
-            polygonPoints.clear();
-            DrawPolygon();
-            SetCursorMode(MODE_NORMAL);
-            UpdateSelect();
+            SelectObjectsInPolygon(polygonPoints);
         }
     }
 }
@@ -329,7 +361,17 @@ void OSGCanvas::ScalePoint(int delta)
 
 void OSGCanvas::DrawCameras()
 {
+    if (camerasGeode.valid())
+    {
+        m_root->removeChild(camerasGeode);
+        camerasGeode.release();
+    }
     if (m_scene->GetImages().size() == 0) return;
+    std::vector<char> flags(m_scene->GetImages().size(),0);
+    for (int index : selectedCameras)
+    {
+        flags[index] = 1;
+    }
     double scale = 0.2;
     double minx=FLT_MAX, maxx=-FLT_MAX, miny=FLT_MAX, maxy=-FLT_MAX;
     std::vector<osg::Vec3d> Cs;
@@ -376,9 +418,16 @@ void OSGCanvas::DrawCameras()
         osg::Vec3d apex = C;
         // Add vertices
         camVerts->push_back(apex); // 0
-        for (int i = 0; i < 4; ++i) camVerts->push_back(base[i]); // 1-4
+        for (int j = 0; j < 4; ++j) camVerts->push_back(base[j]); // 1-4
         // Color: green
-        for (int i = 0; i < 5; ++i) camColors->push_back(osg::Vec4(1, 0, 0, 1));
+        osg::Vec4 camColor(1, 0, 0, 1);
+        osg::Vec4 planeColor(1, 0.2, 0.2, 0.3f);
+        if (flags[i])
+        {
+            camColor = { 0, 0, 1, 1 };
+            planeColor = { 0.2, 0.2, 1.0, 0.3f };
+        }
+        for (int j = 0; j < 5; ++j) camColors->push_back(camColor);
         camGeom->setVertexArray(camVerts.get());
         camGeom->setColorArray(camColors.get(), osg::Array::BIND_PER_VERTEX);
 
@@ -387,9 +436,9 @@ void OSGCanvas::DrawCameras()
         baseLines->push_back(1); baseLines->push_back(2); baseLines->push_back(3); baseLines->push_back(4);
         camGeom->addPrimitiveSet(baseLines.get());
         // Draw sides
-        for (int i = 1; i <= 4; ++i) {
+        for (int j = 1; j <= 4; ++j) {
             osg::ref_ptr<osg::DrawElementsUInt> side = new osg::DrawElementsUInt(osg::PrimitiveSet::LINES, 0);
-            side->push_back(0); side->push_back(i);
+            side->push_back(0); side->push_back(j);
             camGeom->addPrimitiveSet(side.get());
         }
 
@@ -409,12 +458,12 @@ void OSGCanvas::DrawCameras()
         // --- Image plane rectangle (filled) ---
         osg::ref_ptr<osg::Geometry> planeGeom = new osg::Geometry;
         osg::ref_ptr<osg::Vec3Array> planeVerts = new osg::Vec3Array;
-        for (int i = 0; i < 4; ++i)
-            planeVerts->push_back(base[i]);
+        for (int j = 0; j < 4; ++j)
+            planeVerts->push_back(base[j]);
 
         osg::ref_ptr<osg::Vec4Array> planeColors = new osg::Vec4Array;
-        for (int i = 0; i < 4; ++i)
-            planeColors->push_back(osg::Vec4(1, 0.2, 0.2, 0.3f)); // semi-transparent green
+        for (int j = 0; j < 4; ++j)
+            planeColors->push_back(planeColor); // semi-transparent green
 
         planeGeom->setVertexArray(planeVerts.get());
         planeGeom->setColorArray(planeColors.get(), osg::Array::BIND_PER_VERTEX);
@@ -440,11 +489,6 @@ void OSGCanvas::ScaleCamera(int delta)
 {
     if (delta > 0) cameraSize *= 2.0f;
     else cameraSize *= 0.5f;
-    if (camerasGeode.valid())
-    {
-        m_root->removeChild(camerasGeode);
-        camerasGeode.release();
-    }
     DrawCameras();
 }
 
@@ -458,7 +502,7 @@ void OSGCanvas::DrawPolygon()
     }
 
     // Draw 2D polygon overlay using HUD camera if in polygon mode and points exist
-    if (m_cursorMode == MODE_RECTANGLE && dragging)
+    if ((m_cursorMode == MODE_RECTANGLE || m_cursorMode == MODE_RECTANGLE_CAMERA) && dragging)
     {
         int w = GetSize().GetWidth();
         int h = GetSize().GetHeight();
@@ -495,7 +539,7 @@ void OSGCanvas::DrawPolygon()
         m_root->addChild(hudCamera.get());
         Refresh();
     }
-    if (m_cursorMode == MODE_POLYGON && polygonDrawing)
+    if ((m_cursorMode == MODE_POLYGON || m_cursorMode==MODE_POLYGON_CAMERA )&& polygonDrawing)
     {
         int w = GetSize().GetWidth();
         int h = GetSize().GetHeight();
@@ -532,6 +576,11 @@ void OSGCanvas::DrawPolygon()
 
 void OSGCanvas::DrawPoints()
 {
+    if (pointsGeode.valid())
+    {
+        m_root->removeChild(pointsGeode);
+        pointsGeode.release();
+    }
     pointsGeode = new osg::Geode;
     osg::ref_ptr<osg::Geometry> pointsGeom = new osg::Geometry;
     osg::ref_ptr<osg::Vec3Array> vertices = new osg::Vec3Array;
@@ -562,15 +611,16 @@ void OSGCanvas::UpdateSelect()
             if (colors) {
                 // Now you can access or modify colors
                 std::vector<char> flags(colors->size(),0);
-                for (int i : selected) flags[i] = 1;
+                for (int i : selectedPoints) flags[i] = 1;
                 int index = 0;
                 for (auto it = m_scene->GetPoints().begin(); it != m_scene->GetPoints().end(); ++it, index++) {
                     const Point3D& pt = it->second;
                     osg::Vec4& c = (*colors)[index];
                     if (flags[index])
                     {
-                        c[0] = 255;
-                        c[1] = c[2] = 0;
+                        c[0] = 0;
+                        c[1] = 0;
+                        c[2] = 255;
                     }
                     else
                     {
@@ -585,11 +635,12 @@ void OSGCanvas::UpdateSelect()
             }
         }
     }
+    //cameras
+    DrawCameras();
 }
 
 void OSGCanvas::UpdateSceneGraph(bool reset) {
     if (!m_scene) return;
-    m_root->removeChildren(0, m_root->getNumChildren());
     // Add points as OSG geometry
     DrawPoints();
     // Add cameras as square pyramid wireframes
@@ -631,27 +682,64 @@ static bool PointInPolygon(int x, int y, const std::vector<OSGCanvas::Point2D>& 
     }
     return inside;
 }
-void OSGCanvas::SelectPointsInPolygon(const std::vector<Point2D>& polygon) {
-    selected.clear();
+void OSGCanvas::SelectObjectsInPolygon(const std::vector<Point2D>& polygon) {
+    lastSelectMode = m_cursorMode;
+    selectedPoints.clear();
+    selectedCameras.clear();
     if (!m_scene || polygon.size() < 3) return;
-
     // Get viewport, projection, and modelview matrices
     osg::Matrixd projection = m_viewer->getCamera()->getProjectionMatrix();
     osg::Matrixd modelview = m_viewer->getCamera()->getViewMatrix();
     osg::Matrixd viewport = m_viewer->getCamera()->getViewport()->computeWindowMatrix();
     osg::Matrixd mat = modelview * projection * viewport;
-
-    int index = 0;
-    int w, h;
-    GetClientSize(&w, &h);
-    for (auto it = m_scene->GetPoints().begin(); it != m_scene->GetPoints().end(); ++it,index++) {
-        const Point3D& pt = it->second;
-        osg::Vec3d obj(pt.x, pt.y, pt.z);
-        osg::Vec3d win = mat.preMult(obj);
-        if (PointInPolygon(win.x(), h-win.y(), polygon)) {
-            selected.push_back(index);
+    if (lastSelectMode == MODE_RECTANGLE || lastSelectMode == MODE_POLYGON)
+    {
+        int index = 0;
+        int w, h;
+        GetClientSize(&w, &h);
+        for (auto it = m_scene->GetPoints().begin(); it != m_scene->GetPoints().end(); ++it, index++) {
+            const Point3D& pt = it->second;
+            osg::Vec3d obj(pt.x, pt.y, pt.z);
+            osg::Vec3d win = mat.preMult(obj);
+            if (PointInPolygon(win.x(), h - win.y(), polygon)) {
+                selectedPoints.push_back(index);
+            }
         }
     }
+    else
+    {
+        std::vector<osg::Vec3d> Cs;
+        for (auto it = m_scene->GetImages().begin(); it != m_scene->GetImages().end(); ++it) {
+            const Image& img = it->second;
+            osg::Quat q(img.qvec[1], img.qvec[2], img.qvec[3], img.qvec[0]);
+            osg::Matrix Rt;
+            Rt.makeRotate(q);   // R is camera-to-world rotation? NO, it's world-to-camera!
+            // Camera center in world coords
+            osg::Vec3d t(img.tvec[0], img.tvec[1], img.tvec[2]);
+            osg::Vec3d C = -(Rt * t);   // C = -R^T * t
+            Cs.push_back(C);
+        }
+        int index = 0;
+        int w, h;
+        GetClientSize(&w, &h);
+        for (auto it = m_scene->GetImages().begin(); it != m_scene->GetImages().end(); ++it, index++) {
+            const Image& img = it->second;
+            osg::Quat q(img.qvec[1], img.qvec[2], img.qvec[3], img.qvec[0]);
+            osg::Matrix Rt;
+            Rt.makeRotate(q);   // R is camera-to-world rotation? NO, it's world-to-camera!
+            // Camera center in world coords
+            osg::Vec3d t(img.tvec[0], img.tvec[1], img.tvec[2]);
+            osg::Vec3d obj = -(Rt * t);   // C = -R^T * t
+            osg::Vec3d win = mat.preMult(obj);
+            if (PointInPolygon(win.x(), h - win.y(), polygon)) {
+                selectedCameras.push_back(index);
+            }
+        }
+    }
+    polygonPoints.clear();
+    SetCursorMode(MODE_NORMAL);
+    DrawPolygon();
+    UpdateSelect();
 }
 
 GraphicsWindowWX::GraphicsWindowWX(OSGCanvas* canvas)

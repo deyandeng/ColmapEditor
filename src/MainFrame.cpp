@@ -11,6 +11,8 @@ enum {
     ID_ModeNormal,
     ID_ModeRectangle,
     ID_ModePolygon,
+    ID_ModeRectangleCam,
+    ID_ModePolygonCam,
     ID_InvertSelected,
     ID_ResetView,
     ID_IncreasePointSize,
@@ -27,6 +29,8 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_ModeNormal, MainFrame::OnModeNormal)
     EVT_MENU(ID_ModeRectangle, MainFrame::OnModeRectangle)
     EVT_MENU(ID_ModePolygon, MainFrame::OnModePolygon)
+    EVT_MENU(ID_ModeRectangleCam, MainFrame::OnModeRectangleCam)
+    EVT_MENU(ID_ModePolygonCam, MainFrame::OnModePolygonCam)
     EVT_MENU(wxID_EXIT, MainFrame::OnExit)
     EVT_MENU(ID_ResetView, MainFrame::OnResetView)
     EVT_MENU(ID_IncreasePointSize, MainFrame::OnIncreasePointSize)
@@ -47,10 +51,12 @@ MainFrame::MainFrame(const wxString& title)
     m_menuBar->Append(fileMenu, "File");
 
     wxMenu* cursorMenu = new wxMenu;
-    cursorMenu->Append(ID_ModeNormal, "Cursor Normal Mode(N)");
-    cursorMenu->Append(ID_ModeRectangle, "Cursor Rectangle Mode(R)");
-    cursorMenu->Append(ID_ModePolygon, "Cursor Polygon Mode(P)");
-    m_menuBar->Append(cursorMenu, "Cursor");
+    cursorMenu->Append(ID_ModeNormal, "Normal Mode(N)");
+    cursorMenu->Append(ID_ModeRectangle, "Rectangle Select Point Mode(R)");
+    cursorMenu->Append(ID_ModePolygon, "Polygon Select Point Mode(P)");
+    cursorMenu->Append(ID_ModeRectangleCam, "Rectangle Select Camera Mode(Ctrl+R)");
+    cursorMenu->Append(ID_ModePolygonCam, "Polygon Select Camera Mode(Ctrl+P)");
+    m_menuBar->Append(cursorMenu, "Select");
 
     wxMenu* viewMenu = new wxMenu;
     viewMenu->Append(ID_ResetView, "Reset view(Esc)");
@@ -61,8 +67,8 @@ MainFrame::MainFrame(const wxString& title)
     m_menuBar->Append(viewMenu, "View");
 
     wxMenu* editMenue = new wxMenu;
-    editMenue->Append(ID_InvertSelected, "Invert Selected Points(V)");
-    editMenue->Append(ID_DeleteSelected, "Delete Selected Points(Del)");
+    editMenue->Append(ID_InvertSelected, "Invert Selected(V)");
+    editMenue->Append(ID_DeleteSelected, "Delete Selected(Del)");
     m_menuBar->Append(editMenue, "Edit");
 
     SetMenuBar(m_menuBar);
@@ -140,12 +146,12 @@ void MainFrame::OnDecreaseCamSize(wxCommandEvent& event)
 
 void MainFrame::OnDeleteSelected(wxCommandEvent& event) {
     // TODO: Delete selected points in OSGCanvas
-    m_canvas->DeleteSelectedPoints();
+    m_canvas->DeleteSelected();
 }
 
 void MainFrame::OnInvertSelected(wxCommandEvent& event)
 {
-    m_canvas->InvertSelectedPoitns();
+    m_canvas->InvertSelected();
 }
 
 void MainFrame::OnResetView(wxCommandEvent& event)
@@ -172,4 +178,13 @@ void MainFrame::OnModeRectangle(wxCommandEvent& event) {
 
 void MainFrame::OnModePolygon(wxCommandEvent& event) {
     if (m_canvas) m_canvas->SetCursorMode(OSGCanvas::MODE_POLYGON);
+}
+
+
+void MainFrame::OnModeRectangleCam(wxCommandEvent& event) {
+    if (m_canvas) m_canvas->SetCursorMode(OSGCanvas::MODE_RECTANGLE_CAMERA);
+}
+
+void MainFrame::OnModePolygonCam(wxCommandEvent& event) {
+    if (m_canvas) m_canvas->SetCursorMode(OSGCanvas::MODE_POLYGON_CAMERA);
 }

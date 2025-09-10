@@ -9,9 +9,11 @@
 class OSGCanvas : public wxGLCanvas {
 public:
     enum CursorMode {
-        MODE_NORMAL,
+        MODE_NORMAL=0,
         MODE_RECTANGLE,
-        MODE_POLYGON
+        MODE_POLYGON,
+        MODE_RECTANGLE_CAMERA,
+        MODE_POLYGON_CAMERA
     };
     struct Point2D { int x, y; };
     void SetCursorMode(CursorMode mode);
@@ -19,10 +21,10 @@ public:
 public:
     OSGCanvas(wxWindow* parent);
     void SetScene(class Scene* scene);
-    void DeleteSelectedPoints();
-    void InvertSelectedPoitns();
+    void DeleteSelected();
+    void InvertSelected();
     void ResetView();
-    void SelectPointsInPolygon(const std::vector<Point2D>& polygon);
+    void SelectObjectsInPolygon(const std::vector<Point2D>& polygon);
     void SetContextCurrent();
     void DrawPolygon();
     void DrawCameras();
@@ -52,13 +54,15 @@ protected:
     std::vector<Point2D> polygonPoints;
     bool polygonDrawing = false;
 
-    std::vector<int> selected;
+    std::vector<int> selectedPoints;
+    std::vector<int> selectedCameras;
     osg::ref_ptr<osg::Geode> camerasGeode;
     osg::ref_ptr<osg::Geode> pointsGeode;
     osg::ref_ptr<osg::Camera> hudCamera;
 
     float pointSize = 2.0f;
     float cameraSize = 0.05f;
+    int lastSelectMode = 0;
 
     wxDECLARE_EVENT_TABLE();
 };

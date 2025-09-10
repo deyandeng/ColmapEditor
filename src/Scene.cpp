@@ -2,6 +2,8 @@
 #include <fstream>
 #include <sstream>
 #include <iomanip>
+#include <iostream>
+#include <set>
 
 bool Scene::Import(const std::string& points_path, const std::string& cameras_path, const std::string& images_path) {
 	// Parse cameras.txt
@@ -136,4 +138,73 @@ void Scene::DeletePoints(std::vector<int>& selected)
 		}
 		++currentIndex;
 	}
+#if 0
+	//delete unused images
+	std::map<int, int> imgPts;
+	for (auto& img : images_)
+	{
+		imgPts[img.first] = 0;
+	}
+	for (auto& pt : points_)
+	{
+		for (int i = 0;i < pt.second.track.size();i += 2)
+		{
+			imgPts[pt.second.track[i]] += 1;
+		}
+	}
+	auto itImg = images_.begin();
+	while(itImg!=images_.end())
+	{
+		if (imgPts[itImg->first] == 0)
+		{
+			itImg = images_.erase(itImg);
+		}
+		else itImg++;
+	}
+	std::cout << images_.size() << std::endl;
+#endif
+}
+
+void Scene::DeleteImages(std::vector<int>& selected)
+{
+	std::set<int> ids;
+	auto it = images_.begin();
+	int currentIndex = 0;
+	int selIdx = 0;
+
+	while (it != images_.end() && selIdx < selected.size()) {
+		if (currentIndex == selected[selIdx]) {
+			// Erase returns iterator to the next element
+			ids.insert(it->first);
+			it = images_.erase(it);
+			++selIdx; // move to next selected index
+		}
+		else {
+			++it;
+		}
+		++currentIndex;
+	}
+	//delete unused images
+#if 0
+	std::vector<int> toDelete;
+	for (auto& pt : points_)
+	{
+
+		for (int i = pt.second.track.size()-2; i>=0; i-=2)
+		{
+			if (ids.find(pt.second.track[i])!=ids.end())
+			{
+				pt.second.track.erase(pt.second.track.begin() + i, pt.second.track.begin() + i + 2);
+			}
+		}
+		if (pt.second.track.size() == 0)
+		{
+			toDelete.push_back(pt.first);
+		}
+	}
+	for (int id : toDelete)
+	{
+		points_.erase(id);
+	}
+#endif
 }
