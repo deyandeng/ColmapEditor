@@ -3,6 +3,7 @@
 #include "OSGCanvas.h"
 #include <wx/filedlg.h>
 #include <wx/msgdlg.h>
+#include <wx/aboutdlg.h>
 
 enum {
     ID_OpenColmap = wxID_HIGHEST + 1,
@@ -18,7 +19,8 @@ enum {
     ID_IncreasePointSize,
     ID_DecreasePointSize,
     ID_IncreaseCamSize,
-    ID_DecreaseCamSize
+    ID_DecreaseCamSize,
+	ID_About
 };
 
 wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
@@ -37,6 +39,7 @@ wxBEGIN_EVENT_TABLE(MainFrame, wxFrame)
     EVT_MENU(ID_DecreasePointSize, MainFrame::OnDecreasePointSize)
     EVT_MENU(ID_IncreaseCamSize, MainFrame::OnIncreaseCamSize)
     EVT_MENU(ID_DecreaseCamSize, MainFrame::OnDecreaseCamSize)
+	EVT_MENU(ID_About, MainFrame::OnAbout)
 wxEND_EVENT_TABLE()
 
 MainFrame::MainFrame(const wxString& title)
@@ -70,6 +73,10 @@ MainFrame::MainFrame(const wxString& title)
     editMenue->Append(ID_InvertSelected, "Invert Selected(V)");
     editMenue->Append(ID_DeleteSelected, "Delete Selected(Del)");
     m_menuBar->Append(editMenue, "Edit");
+	
+	wxMenu* helpMenu = new wxMenu;
+    helpMenu->Append(ID_About, "About");
+    m_menuBar->Append(helpMenu, "Help");
 
     SetMenuBar(m_menuBar);
 
@@ -78,6 +85,21 @@ MainFrame::MainFrame(const wxString& title)
     m_canvas = new OSGCanvas(m_panel);
     m_sizer->Add(m_canvas, 1, wxEXPAND | wxALL, 5);
     m_panel->SetSizer(m_sizer);
+}
+
+void MainFrame::OnAbout(wxCommandEvent& event)
+{
+    wxAboutDialogInfo info;
+    info.SetName("ColmapEditor");
+    info.SetVersion("0.1.0");
+    info.SetDescription("A lightweight point cloud and camera editor for COLMAP.");
+    info.SetCopyright("(C) 2025 Deyan Deng");
+
+    // Author and contact
+    //info.AddDeveloper("Deyan Deng");
+    info.SetWebSite("mailto:dengdeyan@gmail.com", "Email: dengdeyan@gmail.com");
+
+    wxAboutBox(info,this);
 }
 
 void MainFrame::OnOpenColmapFiles(wxCommandEvent& event) {
