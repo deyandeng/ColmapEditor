@@ -379,14 +379,12 @@ void OSGCanvas::DrawCameras()
     for (auto it = m_scene->GetImages().begin(); it != m_scene->GetImages().end(); ++it) {
         const Image& img = it->second;
         osg::Quat q(img.qvec[1], img.qvec[2], img.qvec[3], img.qvec[0]);
-        osg::Matrix Rt;
-        Rt.makeRotate(q);   // R is camera-to-world rotation? NO, it's world-to-camera!
+        osg::Matrix R;
+        R.makeRotate(q);   // R is camera-to-world rotation? NO, it's world-to-camera!
         // Camera center in world coords
         osg::Vec3d t(img.tvec[0], img.tvec[1], img.tvec[2]);
-        osg::Vec3d C = -(Rt * t);   // C = -R^T * t
+        osg::Vec3d C = -(R * t);   // C = -R^T * t
         Cs.push_back(C);
-        osg::Matrix R;// = osg::Matrix::transpose(R);  // world-from-camera rotation
-        R.transpose(Rt);
         Rs.push_back(R);
         if (C.x() < minx) minx = C.x();
         if (C.x() > maxx) maxx = C.x();
@@ -648,7 +646,8 @@ void OSGCanvas::UpdateSceneGraph(bool reset) {
     if (reset)
     {
         osg::ComputeBoundsVisitor cbv;
-        m_root->accept(cbv);
+        if (camerasGeode.valid()) camerasGeode->accept(cbv);
+        else m_root->accept(cbv);
         osg::BoundingBox bb = cbv.getBoundingBox();
         if (bb.valid())
         {

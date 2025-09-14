@@ -138,7 +138,7 @@ void Scene::DeletePoints(std::vector<int>& selected)
 		}
 		++currentIndex;
 	}
-#if 0
+#if 1
 	//delete unused images
 	std::map<int, int> imgPts;
 	for (auto& img : images_)
@@ -185,7 +185,7 @@ void Scene::DeleteImages(std::vector<int>& selected)
 		++currentIndex;
 	}
 	//delete unused images
-#if 0
+#if 1
 	std::vector<int> toDelete;
 	for (auto& pt : points_)
 	{
